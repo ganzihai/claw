@@ -1,17 +1,10 @@
 # =========================================================================
-# STAGE 1: Diagnose the source image's contents
+# STAGE 1: Reference the CloudSaver image
 # =========================================================================
 FROM jiangrui1994/cloudsaver:latest AS cloudsaver_stage
 
-# --- DIAGNOSTIC COMMAND ---
-# This command will run during the build and show us the exact file structure of /app.
-# The output will be visible in your terminal.
-RUN echo "--- START DIAGNOSIS OF SOURCE IMAGE ---" && \
-    ls -lR /app && \
-    echo "--- END DIAGNOSIS OF SOURCE IMAGE ---"
-
 # =========================================================================
-# STAGE 2: Main build stage
+# STAGE 2: Main build stage for the fat image
 # =========================================================================
 FROM ubuntu:22.04
 
@@ -44,7 +37,7 @@ RUN add-apt-repository ppa:ondrej/php -y && apt-get update && \
     php7.4-bcmath php7.4-soap php7.4-intl php7.4-readline && \
     rm -rf /var/lib/apt/lists/*
 
-# --- 5. Integrate CloudSaver (Copying entire directory) ---
+# --- 5. Integrate CloudSaver (This is correct) ---
 COPY --from=cloudsaver_stage /app /opt/cloudsaver/
 
 # --- 6. Configure Services ---
