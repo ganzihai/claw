@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+# --- DIAGNOSTIC COMMAND ---
+# This will run when the container starts and show us what was actually copied.
+echo "--- START DIAGNOSIS OF FINAL IMAGE AT RUNTIME ---"
+ls -lR /opt/cloudsaver
+echo "--- END DIAGNOSIS OF FINAL IMAGE AT RUNTIME ---"
+# The script will likely fail after this, which is okay for now.
+
+# The rest of the script is the same...
+
 # --- 1. Set SSH Password ---
 if [ -n "$SSH_PASSWORD" ]; then
     echo "INFO: Root password is being set from the SSH_PASSWORD environment variable."
@@ -22,14 +31,12 @@ mkdir -p /var/www/html/cron
 
 # --- 3. Prepare CloudSaver Environment ---
 echo "INFO: Preparing CloudSaver environment..."
-# Because we copied the entire /app dir, this path is now guaranteed to be correct.
 DEFAULT_ENV_TEMPLATE="/opt/cloudsaver/config/env"
 PERSISTENT_ENV_FILE="/var/www/html/cloudsaver_data/.env"
 SYMLINK_PATH="/opt/cloudsaver/.env"
 
 if [ ! -f "$PERSISTENT_ENV_FILE" ]; then
     echo "INFO: No existing .env file found. Copying default template..."
-    # Copy the template, which we are now certain exists.
     cp "$DEFAULT_ENV_TEMPLATE" "$PERSISTENT_ENV_FILE"
     echo "INFO: Default .env file created at $PERSISTENT_ENV_FILE."
     echo "IMPORTANT: You should edit this file to set your JWT_SECRET!"
