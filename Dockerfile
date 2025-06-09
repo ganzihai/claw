@@ -4,7 +4,7 @@
 FROM jiangrui1994/cloudsaver:latest AS cloudsaver_stage
 
 # =========================================================================
-# STAGE 2: Main build stage for the fat image (FINAL VERSION)
+# STAGE 2: Main build stage for the fat image (FINAL SHOWSTOPPER FIX)
 # =========================================================================
 FROM ubuntu:22.04
 
@@ -17,7 +17,8 @@ ENV LC_ALL C.UTF-8
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     software-properties-common git openssh-server sudo curl wget cron nano tar gzip unzip sshpass \
-    python3 python3-pip nginx supervisor mysql-server && \
+    python3 python3-pip python3-dev build-essential \
+    nginx supervisor mysql-server && \
     rm -rf /var/lib/apt/lists/*
 
 # --- 2. Install Go Language Environment ---
@@ -37,8 +38,12 @@ RUN add-apt-repository ppa:ondrej/php -y && apt-get update && \
     php7.4-bcmath php7.4-soap php7.4-intl php7.4-readline && \
     rm -rf /var/lib/apt/lists/*
 
-# --- 5. Integrate CloudSaver ---
+# --- 5. Integrate CloudSaver (FINAL FIX: Rebuild native modules) ---
 COPY --from=cloudsaver_stage /app /opt/cloudsaver/
+# Remove the incompatible Alpine-compiled modules and rebuild them on Ubuntu
+RUN cd /opt/cloudsaver && \
+    rm -rf node_modules && \
+    npm install --omit=dev
 
 # --- 6. Configure Services ---
 COPY supervisord.conf /etc/supervisor/supervisord.conf
@@ -47,11 +52,9 @@ COPY nginx-maccms.conf /etc/nginx/sites-available/maccms
 RUN ln -s /etc/nginx/sites-available/maccms /etc/nginx/sites-enabled/maccms && rm /etc/nginx/sites-enabled/default
 
 # --- FIX for PHP open_basedir Error ---
-# Find and comment out the restrictive open_basedir line in the PHP-FPM config.
 RUN sed -i 's|;*php_admin_value\[open_basedir\]\s*=\s*.*|;php_admin_value[open_basedir] = none|' /etc/php/7.4/fpm/pool.d/www.conf
 
 # --- FIX for SSH Password Login ---
-# Forcefully enable root login with password in the SSH server config.
 RUN sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
