@@ -2,7 +2,6 @@
 set -e
 
 # --- 1. Set SSH Password ---
-# Use the SSH_PASSWORD environment variable if it exists, otherwise use a default.
 if [ -n "$SSH_PASSWORD" ]; then
     echo "INFO: Root password is being set from the SSH_PASSWORD environment variable."
     PASSWORD=$SSH_PASSWORD
@@ -10,24 +9,45 @@ else
     echo "INFO: SSH_PASSWORD environment variable not set. Using default password 'admin123'."
     PASSWORD="admin123"
 fi
-# Apply the password to the root user
 echo "root:$PASSWORD" | chpasswd
 echo "INFO: SSH root password has been set."
 
 
-# --- 2. Prepare CloudSaver Environment (NEW SECTION) ---
+# --- 2. Prepare CloudSaver Environment (Correct .env file logic) ---
 echo "INFO: Preparing CloudSaver environment..."
-# The CloudSaver app expects a 'data' directory in its CWD for config/data.
-# We will symlink our persistent data dir to the location the app expects.
-ln -sfn /var/www/html/cloudsaver_data /opt/cloudsaver/data
-# Copy the default config file if one doesn't already exist in the persistent volume.
-# The `cp -n` flag ensures we don't overwrite an existing, user-modified config.
-cp -n /opt/cloudsaver/config/config.yaml /var/www/html/cloudsaver_data/config.yaml
-echo "INFO: CloudSaver environment is ready."
+
+# Define paths
+DEFAULT_ENV_TEMPLATE="/opt/cloudsaver/config/env"
+PERSISTENT_DATA_DIR="/var/www/html/cloudsaver_data"
+PERSISTENT_ENV_FILE="$PERSISTENT_DATA_DIR/.env"
+SYMLINK_PATH="/opt/cloudsaver/.env"
+
+# Ensure the persistent data directory exists
+mkdir -p "$PERSISTENT_DATA_DIR"
+
+# Only copy the default .env template if the user has not provided their own.
+# This check makes the setup robust and preserves user changes on restart.
+if [ ! -f "$PERSISTENT_ENV_FILE" ]; then
+    echo "INFO: No existing .env file found in $PERSISTENT_DATA_DIR. Copying default template..."
+    if [ -f "$DEFAULT_ENV_TEMPLATE" ]; then
+        cp "$DEFAULT_ENV_TEMPLATE" "$PERSISTENT_ENV_FILE"
+        echo "INFO: Default .env file created at $PERSISTENT_ENV_FILE."
+        echo "IMPORTANT: You should edit this file to set your JWT_SECRET!"
+    else
+        # This is a fallback warning, but our Dockerfile should always copy the file.
+        echo "WARNING: Default env template was not found at $DEFAULT_ENV_TEMPLATE. CloudSaver may fail."
+    fi
+else
+    echo "INFO: Existing .env file found at $PERSISTENT_ENV_FILE. Skipping copy."
+fi
+
+# Create a symlink from the app's working directory to the persistent .env file.
+# The Node.js app will find the .env file in its CWD via this link.
+ln -sfn "$PERSISTENT_ENV_FILE" "$SYMLINK_PATH"
+echo "INFO: CloudSaver is now linked to the persistent .env file."
 
 
 # --- 3. Set permissions for the mounted volume ---
-# This now includes the new cloudsaver directory
 chown -R www-data:www-data /var/www/html
 chown -R mysql:mysql /var/www/html/mysql_data
 
