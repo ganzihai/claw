@@ -66,8 +66,12 @@ RUN add-apt-repository ppa:ondrej/php -y && \
     rm -rf /var/lib/apt/lists/*
 
 # --- 5. Copy CloudSaver from the first stage ---
-COPY --from=cloudsaver_stage /app/CloudSaver /usr/local/bin/cloudsaver
-RUN chmod +x /usr/local/bin/cloudsaver
+RUN mkdir -p /opt/cloudsaver
+# Copy the compiled application, its dependencies, and default config
+COPY --from=cloudsaver_stage /app/dist-final /opt/cloudsaver/dist-final
+COPY --from=cloudsaver_stage /app/node_modules /opt/cloudsaver/node_modules
+COPY --from=cloudsaver_stage /app/package.json /opt/cloudsaver/package.json
+COPY --from=cloudsaver_stage /app/config /opt/cloudsaver/config
 
 # --- 6. Configure Services ---
 
