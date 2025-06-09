@@ -12,8 +12,7 @@ fi
 echo "root:$PASSWORD" | chpasswd
 echo "INFO: SSH root password has been set."
 
-# --- 2. Create Runtime Directories (THE FIX for sshd and php-fpm) ---
-# Services need these directories at runtime, and they may not exist in a clean container.
+# --- 2. Create Runtime Directories ---
 echo "INFO: Creating runtime directories..."
 mkdir -p /var/run/sshd
 mkdir -p /var/run/php
@@ -50,8 +49,9 @@ else
     echo "INFO: MySQL data directory already exists. Skipping initialization."
 fi
 
-# --- 6. Set Final Permissions ---
+# --- 6. Set Final Permissions (FIX for Maccms) ---
 echo "INFO: Setting final permissions for persistent volume..."
+# This chowns the entire directory, including the maccms subdirectory
 chown -R www-data:www-data /var/www/html
 chown -R mysql:mysql /var/www/html/mysql_data
 echo "INFO: Permissions set."
