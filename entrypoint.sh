@@ -1,15 +1,6 @@
 #!/bin/bash
 set -e
 
-# --- DIAGNOSTIC COMMAND ---
-# This will run when the container starts and show us what was actually copied.
-echo "--- START DIAGNOSIS OF FINAL IMAGE AT RUNTIME ---"
-ls -lR /opt/cloudsaver
-echo "--- END DIAGNOSIS OF FINAL IMAGE AT RUNTIME ---"
-# The script will likely fail after this, which is okay for now.
-
-# The rest of the script is the same...
-
 # --- 1. Set SSH Password ---
 if [ -n "$SSH_PASSWORD" ]; then
     echo "INFO: Root password is being set from the SSH_PASSWORD environment variable."
@@ -29,20 +20,21 @@ mkdir -p /var/www/html/logs
 mkdir -p /var/www/html/supervisor/conf.d
 mkdir -p /var/www/html/cron
 
-# --- 3. Prepare CloudSaver Environment ---
+# --- 3. Prepare CloudSaver Environment (THE FINAL FIX) ---
 echo "INFO: Preparing CloudSaver environment..."
-DEFAULT_ENV_TEMPLATE="/opt/cloudsaver/config/env"
 PERSISTENT_ENV_FILE="/var/www/html/cloudsaver_data/.env"
 SYMLINK_PATH="/opt/cloudsaver/.env"
 
+# If the persistent .env file does NOT exist, CREATE it with default content.
 if [ ! -f "$PERSISTENT_ENV_FILE" ]; then
-    echo "INFO: No existing .env file found. Copying default template..."
-    cp "$DEFAULT_ENV_TEMPLATE" "$PERSISTENT_ENV_FILE"
-    echo "INFO: Default .env file created at $PERSISTENT_ENV_FILE."
-    echo "IMPORTANT: You should edit this file to set your JWT_SECRET!"
+    echo "INFO: No existing .env file found. Creating a default one..."
+    echo "JWT_SECRET=your_jwt_secret_here" > "$PERSISTENT_ENV_FILE"
+    echo "IMPORTANT: The default .env file has been created at $PERSISTENT_ENV_FILE. Please edit it to set a real JWT_SECRET!"
 else
-    echo "INFO: Existing .env file found. Skipping copy."
+    echo "INFO: Existing .env file found. Skipping creation."
 fi
+
+# Link the app's CWD to the persistent .env file.
 ln -sfn "$PERSISTENT_ENV_FILE" "$SYMLINK_PATH"
 echo "INFO: CloudSaver is now linked to the persistent .env file."
 
