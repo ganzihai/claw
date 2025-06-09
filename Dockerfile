@@ -65,13 +65,16 @@ RUN add-apt-repository ppa:ondrej/php -y && \
     php7.4-readline && \
     rm -rf /var/lib/apt/lists/*
 
-# --- 5. Copy CloudSaver from the first stage ---
+# --- 5. Integrate CloudSaver from the first stage (CORRECTED & MORE SPECIFIC) ---
+# Create a dedicated directory for the CloudSaver Node.js app
 RUN mkdir -p /opt/cloudsaver
-# Copy the compiled application, its dependencies, and default config
+# Copy the compiled application and its dependencies
 COPY --from=cloudsaver_stage /app/dist-final /opt/cloudsaver/dist-final
 COPY --from=cloudsaver_stage /app/node_modules /opt/cloudsaver/node_modules
 COPY --from=cloudsaver_stage /app/package.json /opt/cloudsaver/package.json
-COPY --from=cloudsaver_stage /app/config /opt/cloudsaver/config
+# EXPLICITLY create the config directory and copy the 'env' template file into it
+RUN mkdir -p /opt/cloudsaver/config
+COPY --from=cloudsaver_stage /app/config/env /opt/cloudsaver/config/env
 
 # --- 6. Configure Services ---
 
