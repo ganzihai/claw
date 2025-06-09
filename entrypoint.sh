@@ -13,46 +13,38 @@ echo "root:$PASSWORD" | chpasswd
 echo "INFO: SSH root password has been set."
 
 
-# --- 2. Prepare CloudSaver Environment (Correct .env file logic) ---
-echo "INFO: Preparing CloudSaver environment..."
+# --- 2. Create All Necessary Persistent Directories (CRITICAL FIX) ---
+# This block runs first to ensure all required directories exist on the mounted volume.
+echo "INFO: Ensuring all persistent directories exist..."
+mkdir -p /var/www/html/cloudsaver_data
+mkdir -p /var/www/html/mysql_data
+mkdir -p /var/www/html/logs
+# These are likely already created, but mkdir -p is safe and ensures they exist
+mkdir -p /var/www/html/supervisor/conf.d
+mkdir -p /var/www/html/cron
 
-# Define paths
+
+# --- 3. Prepare CloudSaver Environment ---
+# This section now runs AFTER its target directory is guaranteed to exist.
+echo "INFO: Preparing CloudSaver environment..."
 DEFAULT_ENV_TEMPLATE="/opt/cloudsaver/config/env"
-PERSISTENT_DATA_DIR="/var/www/html/cloudsaver_data"
-PERSISTENT_ENV_FILE="$PERSISTENT_DATA_DIR/.env"
+PERSISTENT_ENV_FILE="/var/www/html/cloudsaver_data/.env"
 SYMLINK_PATH="/opt/cloudsaver/.env"
 
-# Ensure the persistent data directory exists
-mkdir -p "$PERSISTENT_DATA_DIR"
-
-# Only copy the default .env template if the user has not provided their own.
-# This check makes the setup robust and preserves user changes on restart.
 if [ ! -f "$PERSISTENT_ENV_FILE" ]; then
-    echo "INFO: No existing .env file found in $PERSISTENT_DATA_DIR. Copying default template..."
-    if [ -f "$DEFAULT_ENV_TEMPLATE" ]; then
-        cp "$DEFAULT_ENV_TEMPLATE" "$PERSISTENT_ENV_FILE"
-        echo "INFO: Default .env file created at $PERSISTENT_ENV_FILE."
-        echo "IMPORTANT: You should edit this file to set your JWT_SECRET!"
-    else
-        # This is a fallback warning, but our Dockerfile should always copy the file.
-        echo "WARNING: Default env template was not found at $DEFAULT_ENV_TEMPLATE. CloudSaver may fail."
-    fi
+    echo "INFO: No existing .env file found. Copying default template..."
+    cp "$DEFAULT_ENV_TEMPLATE" "$PERSISTENT_ENV_FILE"
+    echo "INFO: Default .env file created at $PERSISTENT_ENV_FILE."
+    echo "IMPORTANT: You should edit this file to set your JWT_SECRET!"
 else
-    echo "INFO: Existing .env file found at $PERSISTENT_ENV_FILE. Skipping copy."
+    echo "INFO: Existing .env file found. Skipping copy."
 fi
-
-# Create a symlink from the app's working directory to the persistent .env file.
-# The Node.js app will find the .env file in its CWD via this link.
 ln -sfn "$PERSISTENT_ENV_FILE" "$SYMLINK_PATH"
 echo "INFO: CloudSaver is now linked to the persistent .env file."
 
 
-# --- 3. Set permissions for the mounted volume ---
-chown -R www-data:www-data /var/www/html
-chown -R mysql:mysql /var/www/html/mysql_data
-
-
-# --- 4. Initialize MySQL Database if not already initialized ---
+# --- 4. Initialize MySQL Database ---
+# This section now runs AFTER its data directory is guaranteed to exist.
 if [ -z "$(ls -A /var/www/html/mysql_data)" ]; then
     echo "INFO: MySQL data directory is empty. Initializing database..."
     mysqld --initialize-insecure --user=mysql --datadir=/var/www/html/mysql_data
@@ -61,7 +53,15 @@ else
     echo "INFO: MySQL data directory already exists. Skipping initialization."
 fi
 
-echo "INFO: Starting all services via Supervisor..."
 
-# Execute the command passed to the script (CMD from Dockerfile)
+# --- 5. Set Final Permissions (CRITICAL FIX) ---
+# This block runs last, after all files and directories have been created.
+echo "INFO: Setting final permissions for persistent volume..."
+chown -R www-data:www-data /var/www/html
+chown -R mysql:mysql /var/www/html/mysql_data
+echo "INFO: Permissions set."
+
+
+# --- 6. Start All Services ---
+echo "INFO: Starting all services via Supervisor..."
 exec "$@"
