@@ -40,7 +40,7 @@ RUN add-apt-repository ppa:ondrej/php -y && apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # --- 5. Integrate CloudSaver (FINAL FIX: Rebuild native modules) ---
-COPY --from=cloudsaver_stage /app /opt/cloudsaver/
+COPY --from=cloudsaver_stage /app /var/www/html/cloudsaver/
 # Remove the incompatible Alpine-compiled modules and rebuild them on Ubuntu
 RUN cd /opt/cloudsaver && \
     rm -rf node_modules && \
