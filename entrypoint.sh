@@ -28,7 +28,7 @@ mkdir -p /var/www/html/cron
 # --- 4. Prepare CloudSaver Environment ---
 echo "INFO: Preparing CloudSaver environment..."
 PERSISTENT_ENV_FILE="/var/www/html/cloudsaver_data/.env"
-SYMLINK_PATH="/opt/cloudsaver/.env"
+SYMLINK_PATH="/var/www/html/cloudsaver/.env"
 
 if [ ! -f "$PERSISTENT_ENV_FILE" ]; then
     echo "INFO: No existing .env file found. Creating a default one..."
