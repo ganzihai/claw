@@ -20,8 +20,10 @@ RUN apt-get update && \
     software-properties-common git openssh-server sudo curl wget cron nano tar gzip unzip sshpass \
     python3 python3-pip python3-dev build-essential \
     nginx supervisor mysql-server && \
+    # 先添加PHP仓库，确保能安装PHP 7.4
     add-apt-repository ppa:ondrej/php -y && \
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
+    # 安装Node.js
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     nodejs \
@@ -44,6 +46,7 @@ RUN cd /opt/cloudsaver && \
 
 # --- 4. Configure Services ---
 COPY supervisord.conf /etc/supervisor/supervisord.conf
+COPY services.conf /var/www/html/supervisor/conf.d/services.conf
 RUN mkdir -p /var/log/supervisor
 COPY nginx-maccms.conf /etc/nginx/sites-available/maccms
 RUN ln -s /etc/nginx/sites-available/maccms /etc/nginx/sites-enabled/maccms && rm /etc/nginx/sites-enabled/default
@@ -74,7 +77,10 @@ RUN echo "[mysqld]" >> /etc/mysql/conf.d/mysql-optimization.cnf && \
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# --- 9. Final Steps ---
+# --- 9. Create necessary directories ---
+RUN mkdir -p /var/www/html/supervisor/conf.d
+
+# --- 10. Final Steps ---
 EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
