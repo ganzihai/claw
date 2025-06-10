@@ -49,7 +49,6 @@ RUN cd /var/www/html/cloudsaver && \
 # --- 6. Configure Services ---
 COPY supervisord.conf /etc/supervisor/supervisord.conf
 RUN mkdir -p /var/log/supervisor /var/www/html/supervisor/conf.d
-COPY cron.conf /var/www/html/supervisor/conf.d/cron.conf
 COPY nginx-maccms.conf /etc/nginx/sites-available/maccms
 RUN ln -s /etc/nginx/sites-available/maccms /etc/nginx/sites-enabled/maccms && rm /etc/nginx/sites-enabled/default
 
