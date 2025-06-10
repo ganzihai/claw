@@ -63,10 +63,9 @@ RUN sed -i 's/;daemonize = yes/daemonize = no/' /etc/php/7.4/fpm/php-fpm.conf
 RUN sed -i 's|datadir\s*=\s*/var/lib/mysql|datadir = /var/www/html/mysql_data|' /etc/mysql/mysql.conf.d/mysqld.cnf && \
     sed -i 's|#bind-address\s*=\s*127.0.0.1|bind-address = 127.0.0.1|' /etc/mysql/mysql.conf.d/mysqld.cnf
 
+COPY cron_monitor.sh /usr/local/bin/cron_monitor.sh
 RUN chmod +x /usr/local/bin/cron_monitor.sh && \
-    mkdir -p /var/www/html/cron && \
-    echo "*/5 * * * * root /usr/local/bin/cron_monitor.sh >/dev/null 2>&1" > /etc/cron.d/cron_monitor && \
-    chmod 0644 /etc/cron.d/cron_monitor
+    mkdir -p /var/www/html/cron
 
 # --- 8. Setup Scripts and Entrypoint ---
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
