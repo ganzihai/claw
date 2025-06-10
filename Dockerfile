@@ -14,12 +14,27 @@ ENV TZ=Asia/Shanghai
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
-# --- 1. Install Base Packages & Dependencies ---
+# --- 1. Install Base Packages & Dependencies (MODIFIED FOR NGINX v1.24.0) ---
+
+# 1a. Install prerequisites for adding repositories (curl, gpg, etc.)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    software-properties-common git openssh-server sudo curl wget cron nano tar gzip unzip sshpass \
+    software-properties-common curl wget ca-certificates gnupg2 lsb-release
+
+# 1b. Add official Nginx repository
+RUN curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/ubuntu $(lsb_release -cs) nginx" \
+    > /etc/apt/sources.list.d/nginx.list
+
+# 1c. Update lists again and install all main packages, pinning Nginx to the desired version
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    # Pin Nginx to version 1.24.0 from the official repository
+    nginx=1.24.0-1~jammy \
+    # Other packages
+    git openssh-server sudo cron nano tar gzip unzip sshpass \
     python3 python3-pip python3-dev build-essential \
-    nginx supervisor mysql-server && \
+    supervisor mysql-server && \
     rm -rf /var/lib/apt/lists/*
 
 # --- 2. Install Go Language Environment ---
