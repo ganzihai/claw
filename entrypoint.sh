@@ -56,19 +56,16 @@ chown -R www-data:www-data /var/www/html
 chown -R mysql:mysql /var/www/html/mysql_data
 echo "INFO: Permissions set."
 
-# --- 7. Initialize and Start Cron Service ---
-echo "INFO: Setting up cron service..."
+# --- 7. Initialize Cron Environment ---
+echo "INFO: Setting up cron environment..."
 # 确保cron目录存在并设置权限
 mkdir -p /var/www/html/cron
 touch /var/www/html/cron/maccms_cron
 chmod 644 /var/www/html/cron/maccms_cron
 
-# 启动cron服务
-service cron start
-
-# 执行首次cron监控
+# 执行首次cron监控（不启动cron服务，由supervisor管理）
 /usr/local/bin/cron_monitor.sh
-echo "INFO: Cron service started and initial tasks loaded."
+echo "INFO: Cron environment initialized."
 
 # --- 8. Start All Services ---
 echo "INFO: Starting all services via Supervisor..."
