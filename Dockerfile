@@ -50,7 +50,7 @@ COPY supervisord.conf /etc/supervisor/supervisord.conf
 RUN mkdir -p /var/log/supervisor
 COPY nginx-maccms.conf /etc/nginx/sites-available/maccms
 RUN ln -s /etc/nginx/sites-available/maccms /etc/nginx/sites-enabled/maccms && rm /etc/nginx/sites-enabled/default
-RUN rm /etc/nginx/sites-enabled/default
+
 # --- FIX for PHP open_basedir Error ---
 RUN sed -i 's|;*php_admin_value\[open_basedir\]\s*=\s*.*|;php_admin_value[open_basedir] = none|' /etc/php/7.4/fpm/pool.d/www.conf
 
