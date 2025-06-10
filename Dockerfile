@@ -48,7 +48,8 @@ RUN cd /var/www/html/cloudsaver && \
 
 # --- 6. Configure Services ---
 COPY supervisord.conf /etc/supervisor/supervisord.conf
-RUN mkdir -p /var/log/supervisor
+RUN mkdir -p /var/log/supervisor /var/www/html/supervisor/conf.d
+COPY cron.conf /var/www/html/supervisor/conf.d/cron.conf
 COPY nginx-maccms.conf /etc/nginx/sites-available/maccms
 RUN ln -s /etc/nginx/sites-available/maccms /etc/nginx/sites-enabled/maccms && rm /etc/nginx/sites-enabled/default
 
@@ -63,11 +64,18 @@ RUN sed -i 's/;daemonize = yes/daemonize = no/' /etc/php/7.4/fpm/php-fpm.conf
 RUN sed -i 's|datadir\s*=\s*/var/lib/mysql|datadir = /var/www/html/mysql_data|' /etc/mysql/mysql.conf.d/mysqld.cnf && \
     sed -i 's|#bind-address\s*=\s*127.0.0.1|bind-address = 127.0.0.1|' /etc/mysql/mysql.conf.d/mysqld.cnf
 
-# --- 7. Setup Scripts and Entrypoint ---
+# --- 7. Setup Cron Monitor for maccms_cron ---
+COPY cron_monitor.sh /usr/local/bin/cron_monitor.sh
+RUN chmod +x /usr/local/bin/cron_monitor.sh && \
+    mkdir -p /var/www/html/cron && \
+    echo "*/5 * * * * /usr/local/bin/cron_monitor.sh > /dev/null 2>&1" > /etc/cron.d/cron_monitor && \
+    chmod 0644 /etc/cron.d/cron_monitor
+
+# --- 8. Setup Scripts and Entrypoint ---
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# --- 8. Final Steps ---
+# --- 9. Final Steps ---
 EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
