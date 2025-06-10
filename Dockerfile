@@ -35,6 +35,7 @@ RUN apt-get update && \
     git openssh-server sudo cron nano tar gzip unzip sshpass \
     python3 python3-pip python3-dev build-essential \
     supervisor mysql-server && \
+    # Clean up APT lists
     rm -rf /var/lib/apt/lists/*
 
 # --- 2. Install Go Language Environment ---
@@ -71,6 +72,15 @@ COPY nginx-maccms.conf /etc/nginx/conf.d/maccms.conf
 # Remove the default config provided by the nginx.org package to prevent conflicts
 RUN rm /etc/nginx/conf.d/default.conf
 
+# --- NEW FIX: Configure Nginx for Docker/Supervisor environment ---
+# 1. Force Nginx to run in the foreground.
+# 2. Change the Nginx user from 'nginx' to 'www-data' to match PHP-FPM.
+RUN sed -i '1i daemon off;' /etc/nginx/nginx.conf && \
+    sed -i 's/user  nginx;/user  www-data;/' /etc/nginx/nginx.conf
+
+# --- NEW BEST PRACTICE: Validate Nginx configuration during build ---
+RUN nginx -t
+
 # --- FIX for PHP open_basedir Error ---
 RUN sed -i 's|;*php_admin_value\[open_basedir\]\s*=\s*.*|;php_admin_value[open_basedir] = none|' /etc/php/7.4/fpm/pool.d/www.conf
 
@@ -78,6 +88,7 @@ RUN sed -i 's|;*php_admin_value\[open_basedir\]\s*=\s*.*|;php_admin_value[open_b
 RUN sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
+# --- Other Configurations ---
 RUN sed -i 's/;daemonize = yes/daemonize = no/' /etc/php/7.4/fpm/php-fpm.conf
 RUN sed -i 's|datadir\s*=\s*/var/lib/mysql|datadir = /var/www/html/mysql_data|' /etc/mysql/mysql.conf.d/mysqld.cnf && \
     sed -i 's|#bind-address\s*=\s*127.0.0.1|bind-address = 127.0.0.1|' /etc/mysql/mysql.conf.d/mysqld.cnf
