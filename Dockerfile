@@ -10,6 +10,7 @@ FROM ubuntu:22.04
 
 # --- Environment and Arguments ---
 ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
