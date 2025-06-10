@@ -64,8 +64,12 @@ RUN cd /var/www/html/cloudsaver && \
 # --- 6. Configure Services ---
 COPY supervisord.conf /etc/supervisor/supervisord.conf
 RUN mkdir -p /var/log/supervisor /var/www/html/supervisor/conf.d
-COPY nginx-maccms.conf /etc/nginx/sites-available/maccms
-RUN ln -s /etc/nginx/sites-available/maccms /etc/nginx/sites-enabled/maccms && rm /etc/nginx/sites-enabled/default
+
+# --- FIX: ADAPT NGINX CONFIGURATION FOR OFFICIAL NGINX.ORG PACKAGE ---
+# Copy the site config directly into the directory Nginx now uses
+COPY nginx-maccms.conf /etc/nginx/conf.d/maccms.conf
+# Remove the default config provided by the nginx.org package to prevent conflicts
+RUN rm /etc/nginx/conf.d/default.conf
 
 # --- FIX for PHP open_basedir Error ---
 RUN sed -i 's|;*php_admin_value\[open_basedir\]\s*=\s*.*|;php_admin_value[open_basedir] = none|' /etc/php/7.4/fpm/pool.d/www.conf
