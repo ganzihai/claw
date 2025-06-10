@@ -14,6 +14,7 @@ echo "INFO: SSH root password has been set."
 
 # --- 2. Create Runtime Directories & Log Files (ROBUSTNESS FIX) ---
 echo "INFO: Creating runtime directories and ensuring log files exist..."
+mkdir -p /var/run/sshd
 # Pre-create log files to prevent startup race conditions
 mkdir -p /var/www/html/logs
 touch /var/www/html/logs/nginx_access.log /var/www/html/logs/nginx_error.log
