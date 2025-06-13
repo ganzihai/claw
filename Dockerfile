@@ -109,9 +109,9 @@ RUN chown -R www-data:www-data /var/www/html && \
     chmod 755 /var/www/html
 
 # 复制配置文件和脚本
-COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY docker/cron_monitor.sh /usr/local/bin/cron_monitor.sh
+COPY supervisord.conf /etc/supervisor/supervisord.conf
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY cron_monitor.sh /usr/local/bin/cron_monitor.sh
 
 # 赋予脚本执行权限
 RUN chmod +x /usr/local/bin/entrypoint.sh && \
