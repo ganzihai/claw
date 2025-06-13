@@ -41,11 +41,11 @@ RUN a2enmod rewrite php7.4 ssl headers proxy proxy_http
 
 # 复制Apache虚拟主机配置文件
 COPY apache/000-default.conf /etc/apache2/sites-available/000-default.conf
-COPY apache/wordpress.conf /etc/apache2/sites-available/wordpress.conf
+COPY apache/blog.conf /etc/apache2/sites-available/blog.conf
 
 # 启用新的虚拟主机
 RUN echo "Listen 8888" >> /etc/apache2/ports.conf && \
-    a2ensite wordpress.conf
+    a2ensite blog.conf
 
 # ================================
 # 第三阶段：数据库环境 (MySQL)
