@@ -10,11 +10,13 @@ FROM ubuntu:22.04 as base
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Shanghai
 
+# 【修改】在这里添加 git, lsof, iproute2
 RUN apt-get update && apt-get install -y \
     openssh-server sudo curl wget cron nano tar gzip unzip sshpass \
     supervisor tzdata ca-certificates software-properties-common \
     apt-transport-https gnupg2 lsb-release net-tools \
     build-essential \
+    git lsof iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置时区
@@ -38,12 +40,12 @@ RUN add-apt-repository ppa:ondrej/php && \
 RUN a2enmod rewrite php7.4 ssl headers proxy proxy_http
 
 # 复制Apache虚拟主机配置文件
-COPY docker/apache/000-default.conf /etc/apache2/sites-available/000-default.conf
-COPY docker/apache/cloudsaver.conf /etc/apache2/sites-available/cloudsaver.conf
+COPY apache/000-default.conf /etc/apache2/sites-available/000-default.conf
+COPY apache/wordpress.conf /etc/apache2/sites-available/wordpress.conf
 
 # 启用新的虚拟主机
-RUN echo "Listen 8008" >> /etc/apache2/ports.conf && \
-    a2ensite cloudsaver.conf
+RUN echo "Listen 8888" >> /etc/apache2/ports.conf && \
+    a2ensite wordpress.conf
 
 # ================================
 # 第三阶段：数据库环境 (MySQL)
@@ -99,7 +101,7 @@ RUN mkdir /var/run/sshd && \
     sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd && \
     echo 'Port 22' >> /etc/ssh/sshd_config
 
-RUN mkdir -p /var/www/html/{maccms,cron,supervisor/conf.d,mysql,go,python_venv,node_modules,ssl} && \
+RUN mkdir -p /var/www/html/{maccms,cron,supervisor/conf.d,mysql,go,python_venv,node_modules,ssl,blog} && \
     mkdir -p /var/log/supervisor
 
 RUN chown -R www-data:www-data /var/www/html && \
@@ -116,6 +118,6 @@ RUN chmod +x /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/cron_monitor.sh
 
 WORKDIR /var/www/html
-EXPOSE 80 8008
+EXPOSE 80
 VOLUME ["/var/www/html"]
 CMD ["/usr/local/bin/entrypoint.sh"]
