@@ -37,9 +37,12 @@ RUN add-apt-repository ppa:ondrej/php && \
     && rm -rf /var/lib/apt/lists/*
 
 # 启用Apache模块
-RUN a2enmod rewrite php7.4 ssl headers proxy proxy_http
+RUN a2enmod rewrite php7.4 ssl headers proxy proxy_http setenvif
 
-# 复制Apache虚拟主机配置文件
+# 【修改】禁用默认的Apache站点
+RUN a2dissite 000-default
+
+# 告诉Apache去挂载的卷中加载站点配置文件
 RUN echo "\n# Load site configurations from the mounted volume" >> /etc/apache2/apache2.conf && \
     echo "IncludeOptional /var/www/html/apache/*.conf" >> /etc/apache2/apache2.conf
 
