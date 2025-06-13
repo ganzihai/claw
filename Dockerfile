@@ -1,77 +1,121 @@
-# =========================================================================
-# STAGE 1: Reference the CloudSaver image
-# =========================================================================
-FROM jiangrui1994/cloudsaver:latest AS cloudsaver_stage
+# 多阶段构建 - 基于Ubuntu 22.04的集成开发环境镜像
+# 严格遵循项目规范：单一镜像架构，单一卷持久化(/var/www/html/)
 
-# =========================================================================
-# STAGE 2: Main build stage for the fat image (FINAL SHOWSTOPPER FIX)
-# =========================================================================
-FROM ubuntu:22.04
+# ================================
+# 第一阶段：基础环境构建
+# ================================
+FROM ubuntu:22.04 as base
 
-# --- Environment and Arguments ---
-ARG DEBIAN_FRONTEND=noninteractive
+# 设置环境变量，避免交互式安装
+ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Shanghai
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
 
-# --- 1. Install Base Packages & Dependencies ---
+RUN apt-get update && apt-get install -y \
+    openssh-server sudo curl wget cron nano tar gzip unzip sshpass \
+    supervisor tzdata ca-certificates software-properties-common \
+    apt-transport-https gnupg2 lsb-release net-tools \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置时区
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# ================================
+# 第二阶段：Web服务环境 (Apache + PHP 7.4.33)
+# ================================
+FROM base as web-env
+
+# 添加PHP 7.4源并安装Apache和PHP
+RUN add-apt-repository ppa:ondrej/php && \
+    apt-get update && \
+    apt-get install -y \
+    apache2 php7.4 php7.4-fpm php7.4-mysql php7.4-curl php7.4-gd \
+    php7.4-mbstring php7.4-xml php7.4-zip php7.4-json php7.4-opcache \
+    php7.4-readline php7.4-common php7.4-cli libapache2-mod-php7.4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 启用Apache模块
+RUN a2enmod rewrite php7.4 ssl headers proxy proxy_http
+
+# 复制Apache虚拟主机配置文件
+COPY docker/apache/000-default.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/apache/cloudsaver.conf /etc/apache2/sites-available/cloudsaver.conf
+
+# 启用新的虚拟主机
+RUN echo "Listen 8008" >> /etc/apache2/ports.conf && \
+    a2ensite cloudsaver.conf
+
+# ================================
+# 第三阶段：数据库环境 (MySQL)
+# ================================
+FROM web-env as db-env
+
+RUN apt-get update && \
+    echo 'mysql-server mysql-server/root_password password temp_password' | debconf-set-selections && \
+    echo 'mysql-server mysql-server/root_password_again password temp_password' | debconf-set-selections && \
+    apt-get install -y mysql-server && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/www/html/mysql && \
+    chown mysql:mysql /var/www/html/mysql
+
+RUN sed -i 's|datadir.*=.*|datadir = /var/www/html/mysql|g' /etc/mysql/mysql.conf.d/mysqld.cnf && \
+    sed -i 's|bind-address.*=.*|bind-address = 0.0.0.0|g' /etc/mysql/mysql.conf.d/mysqld.cnf
+
+# ================================
+# 第四阶段：开发环境 (Python + Node.js + Go)
+# ================================
+FROM db-env as dev-env
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    software-properties-common git openssh-server sudo curl wget cron nano tar gzip unzip sshpass \
-    python3 python3-pip python3-dev build-essential \
-    nginx supervisor mysql-server && \
+    python3.10 python3.10-dev python3.10-venv python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ln -sf /usr/bin/python3.10 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# --- 2. Install Go Language Environment ---
-RUN wget https://go.dev/dl/go1.24.4.linux-amd64.tar.gz -O /tmp/go.tar.gz && \
-    tar -C /usr/local -xzf /tmp/go.tar.gz && rm /tmp/go.tar.gz
-ENV PATH="/usr/local/go/bin:${PATH}"
+RUN npm install -g pnpm
 
-# --- 3. Install Node.js Environment (LTS) ---
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    rm -rf /var/lib/apt/lists/*
+RUN wget https://go.dev/dl/go1.24.4.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.24.4.linux-amd64.tar.gz && \
+    rm go1.24.4.linux-amd64.tar.gz
 
-# --- 4. Install PHP 7.4 and Extensions ---
-RUN add-apt-repository ppa:ondrej/php -y && apt-get update && \
-    apt-get install -y --no-install-recommends \
-    php7.4-fpm php7.4-mysql php7.4-gd php7.4-curl php7.4-mbstring php7.4-xml php7.4-zip \
-    php7.4-bcmath php7.4-soap php7.4-intl php7.4-readline && \
-    rm -rf /var/lib/apt/lists/*
+ENV PATH=$PATH:/usr/local/go/bin
+ENV GOPATH=/var/www/html/go
+ENV GOPROXY=https://goproxy.cn,direct
 
-# --- 5. Integrate CloudSaver (FINAL FIX: Rebuild native modules) ---
-COPY --from=cloudsaver_stage /app /var/www/html/cloudsaver/
-# Remove the incompatible Alpine-compiled modules and rebuild them on Ubuntu
-RUN cd /var/www/html/cloudsaver && \
-    rm -rf node_modules && \
-    npm install --omit=dev
+# ================================
+# 第五阶段：最终镜像配置
+# ================================
+FROM dev-env as final
 
-# --- 6. Configure Services ---
-COPY supervisord.conf /etc/supervisor/supervisord.conf
-RUN mkdir -p /var/log/supervisor /var/www/html/supervisor/conf.d
-COPY nginx-maccms.conf /etc/nginx/sites-available/maccms
-RUN ln -s /etc/nginx/sites-available/maccms /etc/nginx/sites-enabled/maccms && rm /etc/nginx/sites-enabled/default
+RUN mkdir /var/run/sshd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd && \
+    echo 'Port 22' >> /etc/ssh/sshd_config
 
-# --- FIX for PHP open_basedir Error ---
-RUN sed -i 's|;*php_admin_value\[open_basedir\]\s*=\s*.*|;php_admin_value[open_basedir] = none|' /etc/php/7.4/fpm/pool.d/www.conf
+RUN mkdir -p /var/www/html/{maccms,cron,supervisor/conf.d,mysql,go,python_venv,node_modules,ssl} && \
+    mkdir -p /var/log/supervisor
 
-# --- FIX for SSH Password Login ---
-RUN sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
-    sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+RUN chown -R www-data:www-data /var/www/html && \
+    chown mysql:mysql /var/www/html/mysql && \
+    chmod 755 /var/www/html
 
-RUN sed -i 's/;daemonize = yes/daemonize = no/' /etc/php/7.4/fpm/php-fpm.conf
-RUN sed -i 's|datadir\s*=\s*/var/lib/mysql|datadir = /var/www/html/mysql_data|' /etc/mysql/mysql.conf.d/mysqld.cnf && \
-    sed -i 's|#bind-address\s*=\s*127.0.0.1|bind-address = 127.0.0.1|' /etc/mysql/mysql.conf.d/mysqld.cnf
+# 复制配置文件和脚本
+COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/cron_monitor.sh /usr/local/bin/cron_monitor.sh
 
-COPY cron_monitor.sh /usr/local/bin/cron_monitor.sh
-RUN chmod +x /usr/local/bin/cron_monitor.sh && \
-    mkdir -p /var/www/html/cron
+# 赋予脚本执行权限
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/cron_monitor.sh
 
-# --- 8. Setup Scripts and Entrypoint ---
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# --- 9. Final Steps ---
-EXPOSE 80
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
+WORKDIR /var/www/html
+EXPOSE 80 8008
+VOLUME ["/var/www/html"]
+CMD ["/usr/local/bin/entrypoint.sh"]
